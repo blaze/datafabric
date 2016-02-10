@@ -1,8 +1,7 @@
 import os
 import unittest
 
-from shared_memory import SharedMemoryManager
-
+from yellow_pages import YellowPages
 
 def test():
     testsuite = unittest.TestLoader().discover(os.path.join(os.path.dirname(__file__), 'tests'))

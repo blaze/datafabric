@@ -1,6 +1,10 @@
+import itertools
+import os
+
+from distributed import sync
+
 from posix_ipc import SharedMemory, O_CREAT
 
-"""
 class SharedMemoryBlock(object):
     def __init__(self, name, capacity):
         self._shared_memory = SharedMemory(name, flags = O_CREAT, read_only = False)
@@ -21,12 +25,8 @@ class SharedMemoryBlock(object):
 
     def __repr__(self):
         return 'SharedMemoryBlock(name = {})'.format(self._name)
-"""
 
-def _allocate(name, size):
-    return (name, size)
-
-class SharedMemoryManager(object):
+class YellowPages(object):
     def __init__(self, executor):
         self._executor = executor
         self._blocks = {} # this is a dict of IP addresses and blocks
@@ -34,11 +34,16 @@ class SharedMemoryManager(object):
     def __getitem__(self, name):
         return self._blocks[name]
 
-    def get_locations(self, name):
-        pass
+    def blocks(self):
+        res = []
+        for ip, block in self._blocks.items():
+            for name in block:
+                res.append((ip, name))
+
+        return res
 
     def allocate(self, names, size):
-        futures = self._executor.map(_allocate, names, len(names) * [size])
+        futures = self._executor.map(SharedMemoryBlock, names, len(names) * [size])
         self._executor.gather(futures)
 
         s = sync(self._executor.loop, self._executor.scheduler.who_has)
