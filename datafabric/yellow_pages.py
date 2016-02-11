@@ -3,33 +3,30 @@ import os
 
 from distributed import sync
 
-from posix_ipc import SharedMemory, O_CREAT
-
-class SharedMemoryBlock(object):
-    def __init__(self, name, capacity):
-        self._shared_memory = SharedMemory(name, flags = O_CREAT, read_only = False)
-        ff = os.fdopen(self._shared_memory.fd, 'ab')
-        ff.write(b'0' * capacity)
-
-        self._name = self._shared_memory.name
-        self._capacity = capacity
-        self._variables = {}
-
-    @property
-    def capacity(self):
-        return self._capacity
-
-    def insert(self, name, size):
-        self._variables[name] = size
-        self._capacity -= size
-
-    def __repr__(self):
-        return 'SharedMemoryBlock(name = {})'.format(self._name)
-
 class YellowPages(object):
+    class Block(object):
+        def __init__(self, capacity):
+            self.capacity = capacity
+            self.size = 0
+            self.variables = {}
+
     def __init__(self, executor):
         self._executor = executor
         self._blocks = {} # this is a dict of IP addresses and blocks
+
+    def __del__(self):
+        def func(blocks):
+            import posix_ipc
+
+            for name in blocks:
+                sm = posix_ipc.SharedMemory(name)
+                sm.close_fd()
+                sm.unlink()
+
+        for ip in self._blocks:
+            self._executor.submit(func, self._blocks[ip], workers = (ip,))
+
+        self._blocks.clear()
 
     def __getitem__(self, name):
         return self._blocks[name]
@@ -43,25 +40,37 @@ class YellowPages(object):
         return res
 
     def allocate(self, names, size):
-        futures = self._executor.map(SharedMemoryBlock, names, len(names) * [size])
+        def func(name, size):
+            import posix_ipc
+
+            sm = posix_ipc.SharedMemory(name, flags = posix_ipc.O_CREAT | posix_ipc.O_EXCL, size = size)
+            sm.close_fd()
+
+            return YellowPages.Block(size)
+
+        futures = self._executor.map(func, names, itertools.repeat(size, len(names)))
         self._executor.gather(futures)
 
         s = sync(self._executor.loop, self._executor.scheduler.who_has)
-        for future in futures:
-            key = itertools.chain(*s[future.key]).next()
+        for name, future in zip(names, futures):
+            ip = itertools.chain(*s[future.key]).next()
             try:
-                block = self._blocks[key]
+                block = self._blocks[ip]
             except KeyError:
                 block = {}
-                self._blocks[key] = block
+                self._blocks[ip] = block
 
-            block[future.result()._name] = future.result()
+            block[name] = future.result()
 
     def insert(self, name, size):
         for blocks in self._blocks.values():
             for block in blocks.values():
-                if size <= block.capacity:
-                    block.insert(name, size)
+                if block.size + size <= block.capacity:
+                    block.size += size
+                    block.variables[name] = size
+
+    def remove(self, name):
+        pass
 
     def nodes(self):
         return self._blocks
