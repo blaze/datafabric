@@ -10,9 +10,23 @@ class YellowPages(object):
             self.size = 0
             self.variables = {}
 
+        def __contains__(self, name):
+            return name in self.variables
+
+        def insert(self, name, size):
+            if (self.size + size > self.capacity):
+                raise Exception('at capacity')
+
+            self.size += size
+            self.variables[name] = size
+
+        def remove(self, name):
+            size = self.variables.pop(name)
+            self.size -= size
+
     def __init__(self, executor):
         self._executor = executor
-        self._blocks = {} # this is a dict of IP addresses and blocks
+        self._blocks = {}
 
     def __del__(self):
         def func(blocks):
@@ -33,8 +47,8 @@ class YellowPages(object):
 
     def blocks(self):
         res = []
-        for ip, block in self._blocks.items():
-            for name in block:
+        for ip, blocks in self._blocks.items():
+            for name in blocks:
                 res.append((ip, name))
 
         return res
@@ -65,15 +79,16 @@ class YellowPages(object):
     def insert(self, name, size):
         for blocks in self._blocks.values():
             for block in blocks.values():
-                if block.size + size <= block.capacity:
-                    block.size += size
-                    block.variables[name] = size
+                try:
+                    block.insert(name, size)
+                except Exception:
+                    pass
 
     def remove(self, name):
-        pass
+        for blocks in self._blocks.values():
+            for block in blocks.values():
+                if name in block:
+                    return block.remove(name)
 
     def nodes(self):
         return self._blocks
-
-    def read(self):
-        pass
