@@ -40,16 +40,17 @@ class TestDataFabric(unittest.TestCase):
 
         yp.insert('x', 4)
         yp.find('x') # Should not raise an exception
-        self.assertEqual((1024, 4, 4), yp.find('x', ip_only = False)[2:])
+        self.assertEqual((1024, 4, 4, 0), yp.find('x', ip_only = False)[2:])
 
         with self.assertRaises(LookupError):
             yp.find('y')
 
         yp.insert('y', 8)
         yp.find('x') # Should not raise an exception
-        self.assertEqual((1024, 12, 4), yp.find('x', ip_only = False)[2:])
+        self.assertEqual((1024, 12, 4, 0), yp.find('x', ip_only = False)[2:])
+
         yp.find('y') # Should not raise an exception
-        self.assertEqual((1024, 12, 8), yp.find('y', ip_only = False)[2:])
+        self.assertEqual((1024, 12, 8, 4), yp.find('y', ip_only = False)[2:])
 
         with self.assertRaises(LookupError):
             yp.find('p')
@@ -78,7 +79,7 @@ class TestDataFabric(unittest.TestCase):
 
         yp.insert('x', 4)
         yp.find('x') # Should not raise an exception
-        self.assertEqual((1024, 4, 4), yp.find('x', ip_only = False)[2:])
+        self.assertEqual((1024, 4, 4, 0), yp.find('x', ip_only = False)[2:])
 
         yp.remove('x')
         with self.assertRaises(LookupError):
@@ -87,12 +88,12 @@ class TestDataFabric(unittest.TestCase):
         yp.insert('x', 4)
         yp.insert('y', 8)
         yp.find('x') # Should not raise an exception
-        self.assertEqual((1024, 12, 4), yp.find('x', ip_only = False)[2:])
+        self.assertEqual((1024, 12, 4, 4), yp.find('x', ip_only = False)[2:])
         yp.find('y') # Should not raise an exception
-        self.assertEqual((1024, 12, 8), yp.find('y', ip_only = False)[2:])
+        self.assertEqual((1024, 12, 8, 8), yp.find('y', ip_only = False)[2:])
 
         yp.remove('x')
-        self.assertEqual((1024, 8, 8), yp.find('y', ip_only = False)[2:])
+        self.assertEqual((1024, 8, 8, 8), yp.find('y', ip_only = False)[2:])
         with self.assertRaises(LookupError):
             yp.find('x')
 
